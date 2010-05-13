@@ -7,7 +7,7 @@ from os.path import join, dirname, abspath
 from logging import fatal
 
 cwd = os.getcwd()
-VERSION="0.1.93"
+VERSION="0.1.94"
 APPNAME="node.js"
 
 import js2c
@@ -434,6 +434,7 @@ def build(bld):
     config.h
     src/node.h
     src/node_object_wrap.h
+    src/node_buffer.h
     src/node_events.h
   """)
 

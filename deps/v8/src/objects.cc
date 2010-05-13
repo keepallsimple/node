@@ -682,11 +682,11 @@ bool String::MakeExternal(v8::String::ExternalStringResource* resource) {
   if (FLAG_enable_slow_asserts) {
     // Assert that the resource and the string are equivalent.
     ASSERT(static_cast<size_t>(this->length()) == resource->length());
-    SmartPointer<uc16> smart_chars(NewArray<uc16>(this->length()));
-    String::WriteToFlat(this, *smart_chars, 0, this->length());
-    ASSERT(memcmp(*smart_chars,
+    ScopedVector<uc16> smart_chars(this->length());
+    String::WriteToFlat(this, smart_chars.start(), 0, this->length());
+    ASSERT(memcmp(smart_chars.start(),
                   resource->data(),
-                  resource->length() * sizeof(**smart_chars)) == 0);
+                  resource->length() * sizeof(smart_chars[0])) == 0);
   }
 #endif  // DEBUG
 
@@ -728,11 +728,11 @@ bool String::MakeExternal(v8::String::ExternalAsciiStringResource* resource) {
   if (FLAG_enable_slow_asserts) {
     // Assert that the resource and the string are equivalent.
     ASSERT(static_cast<size_t>(this->length()) == resource->length());
-    SmartPointer<char> smart_chars(NewArray<char>(this->length()));
-    String::WriteToFlat(this, *smart_chars, 0, this->length());
-    ASSERT(memcmp(*smart_chars,
+    ScopedVector<char> smart_chars(this->length());
+    String::WriteToFlat(this, smart_chars.start(), 0, this->length());
+    ASSERT(memcmp(smart_chars.start(),
                   resource->data(),
-                  resource->length()*sizeof(**smart_chars)) == 0);
+                  resource->length() * sizeof(smart_chars[0])) == 0);
   }
 #endif  // DEBUG
 
@@ -4900,12 +4900,14 @@ Object* JSFunction::SetInstancePrototype(Object* value) {
     // prototype is put into the initial map where it belongs.
     set_prototype_or_initial_map(value);
   }
+  Heap::ClearInstanceofCache();
   return value;
 }
 
 
 
 Object* JSFunction::SetPrototype(Object* value) {
+  ASSERT(should_have_prototype());
   Object* construct_prototype = value;
 
   // If the value is not a JSObject, store the value in the map's
@@ -4928,6 +4930,14 @@ Object* JSFunction::SetPrototype(Object* value) {
   }
 
   return SetInstancePrototype(construct_prototype);
+}
+
+
+Object* JSFunction::RemovePrototype() {
+  ASSERT(map() == context()->global_context()->function_map());
+  set_map(context()->global_context()->function_without_prototype_map());
+  set_prototype_or_initial_map(Heap::the_hole_value());
+  return this;
 }
 
 
@@ -5591,6 +5601,8 @@ Object* JSObject::SetPrototype(Object* value,
   if (new_map->IsFailure()) return new_map;
   Map::cast(new_map)->set_prototype(value);
   real_receiver->set_map(Map::cast(new_map));
+
+  Heap::ClearInstanceofCache();
 
   return value;
 }

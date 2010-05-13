@@ -54,6 +54,7 @@ function InstallFunctions(object, attributes, functions) {
     var key = functions[i];
     var f = functions[i + 1];
     %FunctionSetName(f, key);
+    %FunctionRemovePrototype(f);
     %SetProperty(object, key, f, attributes);
   }
   %ToFastProperties(object);
@@ -659,7 +660,8 @@ function ObjectGetOwnPropertyNames(obj) {
 
 // ES5 section 15.2.3.5.
 function ObjectCreate(proto, properties) {
-  if (!IS_OBJECT(proto) && !IS_NULL(proto)) {
+  // IS_OBJECT will return true on null covering that case.
+  if (!IS_OBJECT(proto) && !IS_FUNCTION(proto)) {
     throw MakeTypeError("proto_object_or_null", [proto]);
   }
   var obj = new $Object();

@@ -36,7 +36,7 @@ namespace internal {
 static const int kFastDtoaMaximalLength = 17;
 
 // Provides a decimal representation of v.
-// v must not be (positive or negative) zero and it must not be Infinity or NaN.
+// v must be a strictly positive finite double.
 // Returns true if it succeeds, otherwise the result can not be trusted.
 // There will be *length digits inside the buffer followed by a null terminator.
 // If the function returns true then
@@ -48,7 +48,10 @@ static const int kFastDtoaMaximalLength = 17;
 // one closest to v.
 // The variable 'sign' will be '0' if the given number is positive, and '1'
 //   otherwise.
-bool FastDtoa(double d, char* buffer, int* sign, int* length, int* point);
+bool FastDtoa(double d,
+              Vector<char> buffer,
+              int* length,
+              int* point);
 
 } }  // namespace v8::internal
 

@@ -596,10 +596,16 @@ Object* LoadIC::Load(State state, Handle<Object> object, Handle<String> name) {
 #ifdef DEBUG
       if (FLAG_trace_ic) PrintF("[LoadIC : +#length /string]\n");
 #endif
+      Map* map = HeapObject::cast(*object)->map();
+      if (object->IsString()) {
+        const int offset = String::kLengthOffset;
+        PatchInlinedLoad(address(), map, offset);
+      }
+
       Code* target = NULL;
       target = Builtins::builtin(Builtins::LoadIC_StringLength);
       set_target(target);
-      StubCache::Set(*name, HeapObject::cast(*object)->map(), target);
+      StubCache::Set(*name, map, target);
       return Smi::FromInt(String::cast(*object)->length());
     }
 
@@ -608,14 +614,19 @@ Object* LoadIC::Load(State state, Handle<Object> object, Handle<String> name) {
 #ifdef DEBUG
       if (FLAG_trace_ic) PrintF("[LoadIC : +#length /array]\n");
 #endif
+      Map* map = HeapObject::cast(*object)->map();
+      const int offset = JSArray::kLengthOffset;
+      PatchInlinedLoad(address(), map, offset);
+
       Code* target = Builtins::builtin(Builtins::LoadIC_ArrayLength);
       set_target(target);
-      StubCache::Set(*name, HeapObject::cast(*object)->map(), target);
+      StubCache::Set(*name, map, target);
       return JSArray::cast(*object)->length();
     }
 
     // Use specialized code for getting prototype of functions.
-    if (object->IsJSFunction() && name->Equals(Heap::prototype_symbol())) {
+    if (object->IsJSFunction() && name->Equals(Heap::prototype_symbol()) &&
+        JSFunction::cast(*object)->should_have_prototype()) {
 #ifdef DEBUG
       if (FLAG_trace_ic) PrintF("[LoadIC : +#prototype /function]\n");
 #endif
@@ -824,7 +835,8 @@ Object* KeyedLoadIC::Load(State state,
       }
 
       // Use specialized code for getting prototype of functions.
-      if (object->IsJSFunction() && name->Equals(Heap::prototype_symbol())) {
+      if (object->IsJSFunction() && name->Equals(Heap::prototype_symbol()) &&
+        JSFunction::cast(*object)->should_have_prototype()) {
         Handle<JSFunction> function = Handle<JSFunction>::cast(object);
         Object* code =
             StubCache::ComputeKeyedLoadFunctionPrototype(*name, *function);

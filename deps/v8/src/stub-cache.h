@@ -559,8 +559,30 @@ class KeyedStoreStubCompiler: public StubCompiler {
 };
 
 
+// List of functions with custom constant call IC stubs.
+//
+// Installation of custom call generators for the selected builtins is
+// handled by the bootstrapper.
+//
+// Each entry has a name of a global function (lowercased), a name of
+// a builtin function on its instance prototype (the one the generator
+// is set for), and a name of a generator itself (used to build ids
+// and generator function names).
+#define CUSTOM_CALL_IC_GENERATORS(V) \
+  V(array, push, ArrayPush) \
+  V(array, pop, ArrayPop)
+
+
 class CallStubCompiler: public StubCompiler {
  public:
+  enum {
+#define DECLARE_CALL_GENERATOR_ID(ignored1, ignored2, name) \
+    k##name##CallGenerator,
+    CUSTOM_CALL_IC_GENERATORS(DECLARE_CALL_GENERATOR_ID)
+#undef DECLARE_CALL_GENERATOR_ID
+    kNumCallGenerators
+  };
+
   CallStubCompiler(int argc, InLoopFlag in_loop)
       : arguments_(argc), in_loop_(in_loop) { }
 
@@ -582,17 +604,22 @@ class CallStubCompiler: public StubCompiler {
                             JSFunction* function,
                             String* name);
 
-  Object* CompileArrayPushCall(Object* object,
-                               JSObject* holder,
-                               JSFunction* function,
-                               String* name,
-                               CheckType check);
+  // Compiles a custom call constant IC using the generator with given id.
+  Object* CompileCustomCall(int generator_id,
+                            Object* object,
+                            JSObject* holder,
+                            JSFunction* function,
+                            String* name,
+                            CheckType check);
 
-  Object* CompileArrayPopCall(Object* object,
-                              JSObject* holder,
-                              JSFunction* function,
-                              String* name,
+#define DECLARE_CALL_GENERATOR(ignored1, ignored2, name) \
+  Object* Compile##name##Call(Object* object,            \
+                              JSObject* holder,          \
+                              JSFunction* function,      \
+                              String* fname,             \
                               CheckType check);
+  CUSTOM_CALL_IC_GENERATORS(DECLARE_CALL_GENERATOR)
+#undef DECLARE_CALL_GENERATOR
 
  private:
   const ParameterCount arguments_;
@@ -601,6 +628,10 @@ class CallStubCompiler: public StubCompiler {
   const ParameterCount& arguments() { return arguments_; }
 
   Object* GetCode(PropertyType type, String* name);
+
+  // Convenience function. Calls GetCode above passing
+  // CONSTANT_FUNCTION type and the name of the given function.
+  Object* GetCode(JSFunction* function);
 };
 
 
@@ -615,29 +646,53 @@ class ConstructStubCompiler: public StubCompiler {
 };
 
 
-typedef Object* (*CustomCallGenerator)(CallStubCompiler* compiler,
-                                       Object* object,
-                                       JSObject* holder,
-                                       JSFunction* function,
-                                       String* name,
-                                       StubCompiler::CheckType check);
+// Holds information about possible function call optimizations.
+class CallOptimization BASE_EMBEDDED {
+ public:
+  explicit CallOptimization(LookupResult* lookup);
 
+  explicit CallOptimization(JSFunction* function);
 
-Object* CompileArrayPushCall(CallStubCompiler* compiler,
-                             Object* object,
-                             JSObject* holder,
-                             JSFunction* function,
-                             String* name,
-                             StubCompiler::CheckType check);
+  bool is_constant_call() const {
+    return constant_function_ != NULL;
+  }
 
+  JSFunction* constant_function() const {
+    ASSERT(constant_function_ != NULL);
+    return constant_function_;
+  }
 
-Object* CompileArrayPopCall(CallStubCompiler* compiler,
-                            Object* object,
-                            JSObject* holder,
-                            JSFunction* function,
-                            String* name,
-                            StubCompiler::CheckType check);
+  bool is_simple_api_call() const {
+    return is_simple_api_call_;
+  }
 
+  FunctionTemplateInfo* expected_receiver_type() const {
+    ASSERT(is_simple_api_call_);
+    return expected_receiver_type_;
+  }
+
+  CallHandlerInfo* api_call_info() const {
+    ASSERT(is_simple_api_call_);
+    return api_call_info_;
+  }
+
+  // Returns the depth of the object having the expected type in the
+  // prototype chain between the two arguments.
+  int GetPrototypeDepthOfExpectedType(JSObject* object,
+                                      JSObject* holder) const;
+
+ private:
+  void Initialize(JSFunction* function);
+
+  // Determines whether the given function can be called using the
+  // fast api call builtin.
+  void AnalyzePossibleApiFunction(JSFunction* function);
+
+  JSFunction* constant_function_;
+  bool is_simple_api_call_;
+  FunctionTemplateInfo* expected_receiver_type_;
+  CallHandlerInfo* api_call_info_;
+};
 
 } }  // namespace v8::internal
 

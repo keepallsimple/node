@@ -1142,6 +1142,29 @@ Object* KeyedStoreStubCompiler::GetCode(PropertyType type, String* name) {
 }
 
 
+Object* CallStubCompiler::CompileCustomCall(int generator_id,
+                                            Object* object,
+                                            JSObject* holder,
+                                            JSFunction* function,
+                                            String* fname,
+                                            CheckType check) {
+    ASSERT(generator_id >= 0 && generator_id < kNumCallGenerators);
+    switch (generator_id) {
+#define CALL_GENERATOR_CASE(ignored1, ignored2, name)          \
+      case k##name##CallGenerator:                             \
+        return CallStubCompiler::Compile##name##Call(object,   \
+                                                     holder,   \
+                                                     function, \
+                                                     fname,    \
+                                                     check);
+      CUSTOM_CALL_IC_GENERATORS(CALL_GENERATOR_CASE)
+#undef CALL_GENERATOR_CASE
+    }
+    UNREACHABLE();
+    return Heap::undefined_value();
+}
+
+
 Object* CallStubCompiler::GetCode(PropertyType type, String* name) {
   int argc = arguments_.immediate();
   Code::Flags flags = Code::ComputeMonomorphicFlags(Code::CALL_IC,
@@ -1149,6 +1172,15 @@ Object* CallStubCompiler::GetCode(PropertyType type, String* name) {
                                                     in_loop_,
                                                     argc);
   return GetCodeWithFlags(flags, name);
+}
+
+
+Object* CallStubCompiler::GetCode(JSFunction* function) {
+  String* function_name = NULL;
+  if (function->shared()->name()->IsString()) {
+    function_name = String::cast(function->shared()->name());
+  }
+  return GetCode(CONSTANT_FUNCTION, function_name);
 }
 
 
@@ -1161,6 +1193,73 @@ Object* ConstructStubCompiler::GetCode() {
     PROFILE(CodeCreateEvent(Logger::STUB_TAG, code, "ConstructStub"));
   }
   return result;
+}
+
+
+CallOptimization::CallOptimization(LookupResult* lookup) {
+  if (!lookup->IsProperty() || !lookup->IsCacheable() ||
+      lookup->type() != CONSTANT_FUNCTION) {
+    Initialize(NULL);
+  } else {
+    // We only optimize constant function calls.
+    Initialize(lookup->GetConstantFunction());
+  }
+}
+
+CallOptimization::CallOptimization(JSFunction* function) {
+  Initialize(function);
+}
+
+
+int CallOptimization::GetPrototypeDepthOfExpectedType(JSObject* object,
+                                                      JSObject* holder) const {
+  ASSERT(is_simple_api_call_);
+  if (expected_receiver_type_ == NULL) return 0;
+  int depth = 0;
+  while (object != holder) {
+    if (object->IsInstanceOf(expected_receiver_type_)) return depth;
+    object = JSObject::cast(object->GetPrototype());
+    ++depth;
+  }
+  if (holder->IsInstanceOf(expected_receiver_type_)) return depth;
+  return kInvalidProtoDepth;
+}
+
+
+void CallOptimization::Initialize(JSFunction* function) {
+  constant_function_ = NULL;
+  is_simple_api_call_ = false;
+  expected_receiver_type_ = NULL;
+  api_call_info_ = NULL;
+
+  if (function == NULL || !function->is_compiled()) return;
+
+  constant_function_ = function;
+  AnalyzePossibleApiFunction(function);
+}
+
+
+void CallOptimization::AnalyzePossibleApiFunction(JSFunction* function) {
+  SharedFunctionInfo* sfi = function->shared();
+  if (!sfi->IsApiFunction()) return;
+  FunctionTemplateInfo* info = sfi->get_api_func_data();
+
+  // Require a C++ callback.
+  if (info->call_code()->IsUndefined()) return;
+  api_call_info_ = CallHandlerInfo::cast(info->call_code());
+
+  // Accept signatures that either have no restrictions at all or
+  // only have restrictions on the receiver.
+  if (!info->signature()->IsUndefined()) {
+    SignatureInfo* signature = SignatureInfo::cast(info->signature());
+    if (!signature->args()->IsUndefined()) return;
+    if (!signature->receiver()->IsUndefined()) {
+      expected_receiver_type_ =
+          FunctionTemplateInfo::cast(signature->receiver());
+    }
+  }
+
+  is_simple_api_call_ = true;
 }
 
 
