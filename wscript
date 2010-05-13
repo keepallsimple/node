@@ -7,7 +7,7 @@ from os.path import join, dirname, abspath
 from logging import fatal
 
 cwd = os.getcwd()
-VERSION="0.1.94"
+VERSION="0.1.95"
 APPNAME="node.js"
 
 import js2c
@@ -235,9 +235,10 @@ def v8_cmd(bld, variant):
   else:
     mode = "debug"
 
-  cmd_R = 'python "%s" -C "%s" -Y "%s" visibility=default mode=%s %s library=static snapshot=on'
+  cmd_R = 'python "%s" -j %d -C "%s" -Y "%s" visibility=default mode=%s %s library=static snapshot=on'
 
   cmd = cmd_R % ( scons
+                , Options.options.jobs
                 , bld.srcnode.abspath(bld.env_of_name(variant))
                 , v8dir_src
                 , mode
@@ -276,6 +277,7 @@ def build_v8(bld):
 def build(bld):
   print "DEST_OS: " + bld.env['DEST_OS']
   print "DEST_CPU: " + bld.env['DEST_CPU']
+  print "Parallel Jobs: " + str(Options.options.jobs)
 
   if not bld.env["USE_SYSTEM"]:
     bld.add_subdirs('deps/libeio deps/libev deps/c-ares')
