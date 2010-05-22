@@ -169,16 +169,16 @@ var stdin;
 process.openStdin = function () {
   if (stdin) return stdin;
 
-var binding = process.binding('stdio'),
-    net = module.requireNative('net'),
-    fs = module.requireNative('fs'),
-    fd = binding.openStdin();
+  var binding = process.binding('stdio'),
+      net = module.requireNative('net'),
+      fs = module.requireNative('fs'),
+      fd = binding.openStdin();
 
   if (binding.isStdinBlocking()) {
+    stdin = new fs.ReadStream(null, {fd: fd});
+  } else {
     stdin = new net.Stream(fd);
     stdin.readable = true;
-  } else {
-    stdin = new fs.ReadStream(null, {fd: fd});
   }
 
   stdin.resume();

@@ -68,6 +68,14 @@ strip the high bit if set.
 
 Allocates a new buffer of `size` octets.
 
+### new Buffer(array)
+
+Allocates a new buffer using an `array` of octets.
+
+### new Buffer(str, encoding = 'utf8')
+
+Allocates a new buffer containing the given `str`.
+
 ### buffer.write(string, encoding, offset)
 
 Writes `string` to the buffer at `offset` using the given encoding. Returns
@@ -1384,11 +1392,15 @@ or 'a+'. The callback gets two arguments `(err, fd)`.
 
 Synchronous open(2). 
 
-### fs.write(fd, data, position, encoding, callback)
+### fs.write(fd, buffer, offset, length, position, callback)
 
-Write data to the file specified by `fd`.  `position` refers to the offset
-from the beginning of the file where this data should be written. If
-`position` is `null`, the data will be written at the current position.
+Write `buffer` to the file specified by `fd`.
+
+`offset` and `length` determine the part of the buffer to be written.
+
+`position` refers to the offset from the beginning of the file where this data
+should be written. If `position` is `null`, the data will be written at the
+current position.
 See pwrite(2).
 
 The callback will be given two arguments `(err, written)` where `written`
@@ -1398,20 +1410,24 @@ specifies how many _bytes_ were written.
 
 Synchronous version of `fs.write()`. Returns the number of bytes written.
 
-### fs.read(fd, length, position, encoding, callback)
+### fs.read(fd, buffer, offset, length, position, callback)
 
 Read data from the file specified by `fd`.
+
+`buffer` is the buffer that the data will be written to.
+
+`offset` is offset within the buffer where writing will start.
 
 `length` is an integer specifying the number of bytes to read.
 
 `position` is an integer specifying where to begin reading from in the file.
+If `position` is `null`, data will be read from the current file position.
 
-The callback is given three arguments, `(err, data, bytesRead)` where `data`
-is a string--what was read--and `bytesRead` is the number of bytes read.
+The callback is given the two arguments, `(err, bytesRead)`.
 
-### fs.readSync(fd, length, position, encoding)
+### fs.readSync(fd, buffer, offset, length, position)
 
-Synchronous version of `fs.read`. Returns an array `[data, bytesRead]`.
+Synchronous version of `fs.read`. Returns the number of `bytesRead`.
 
 ### fs.readFile(filename, [encoding,] callback)
 
@@ -1588,14 +1604,13 @@ This is an EventEmitter with the following events:
  `request` is an instance of `http.ServerRequest` and `response` is
  an instance of `http.ServerResponse`
 
-### Event: 'stream'
+### Event: 'connection'
 
 `function (stream) { }`
 
- When a new TCP stream is established.
- `stream` is an object of type `http.Connection`. Usually users
- will not want to access this event. The `stream` can also be
- accessed at `request.stream`.
+ When a new TCP stream is established. `stream` is an object of type
+ `net.Stream`. Usually users will not want to access this event. The
+ `stream` can also be accessed at `request.connection`.
 
 ### Event: 'close'
 
@@ -1776,7 +1791,9 @@ Resumes a paused request.
 
 The `net.Stream` object assocated with the connection.
 
-With HTTPS support, use request.connection.verifyPeer() and request.connection.getPeerCertificate() to obtain the client's authentication details.
+With HTTPS support, use request.connection.verifyPeer() and
+request.connection.getPeerCertificate() to obtain the client's
+authentication details.
 
 
 ## http.ServerResponse
@@ -2529,6 +2546,9 @@ Expects `block` to throw an error.
 
 Expects `block` not to throw an error.
 
+### assert.ifError(value)
+
+Tests if value is not a false value, throws if it is a true value. Useful when testing the first argument, `error` in callbacks.
 
 ## Path
 

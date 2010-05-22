@@ -106,18 +106,9 @@ static int After(eio_req *req) {
 
       case EIO_READ:
       {
-        if (req->int3) {
-          // legacy interface
-          Local<Object> obj = Local<Object>::New(*callback);
-          Local<Value> enc_val = obj->GetHiddenValue(encoding_symbol);
-          argv[1] = Encode(req->ptr2, req->result, ParseEncoding(enc_val));
-          argv[2] = Integer::New(req->result);
-          argc = 3;
-        } else {
-          // Buffer interface
-          argv[1] = Integer::New(req->result);
-          argc = 2;
-        }
+        // Buffer interface
+        argv[1] = Integer::New(req->result);
+        argc = 2;
         break;
       }
 
@@ -148,11 +139,6 @@ static int After(eio_req *req) {
       default:
         assert(0 && "Unhandled eio response");
     }
-  }
-
-  if (req->type == EIO_WRITE && req->int3 == 1) {
-    assert(req->ptr2);
-    delete [] reinterpret_cast<char*>(req->ptr2);
   }
 
   TryCatch try_catch;
@@ -536,14 +522,6 @@ static Handle<Value> Open(const Arguments& args) {
 // 3 length    how much to write
 // 4 position  if integer, position to write at in the file.
 //             if null, write from the current position
-//
-//           - OR -
-//
-// 0 fd        integer. file descriptor
-// 1 string    the data to write
-// 2 position  if integer, position to write at in the file.
-//             if null, write from the current position
-// 3 encoding
 static Handle<Value> Write(const Arguments& args) {
   HandleScope scope;
 
@@ -553,99 +531,35 @@ static Handle<Value> Write(const Arguments& args) {
 
   int fd = args[0]->Int32Value();
 
-  off_t pos;
-  ssize_t len;
-  char * buf;
-  ssize_t written;
-
-  Local<Value> cb;
-  bool legacy;
-
-  if (Buffer::HasInstance(args[1])) {
-    legacy = false;
-    // buffer
-    //
-    // 0 fd        integer. file descriptor
-    // 1 buffer    the data to write
-    // 2 offset    where in the buffer to start from
-    // 3 length    how much to write
-    // 4 position  if integer, position to write at in the file.
-    //             if null, write from the current position
-
-    Buffer * buffer = ObjectWrap::Unwrap<Buffer>(args[1]->ToObject());
-
-    size_t off = args[2]->Int32Value();
-    if (off >= buffer->length()) {
-      return ThrowException(Exception::Error(
-            String::New("Offset is out of bounds")));
-    }
-
-    len = args[3]->Int32Value();
-    if (off + len > buffer->length()) {
-      return ThrowException(Exception::Error(
-            String::New("Length is extends beyond buffer")));
-    }
-
-    pos = GET_OFFSET(args[4]);
-
-    buf = (char*)buffer->data() + off;
-
-    cb = args[5];
-
-  } else {
-    legacy = true;
-    // legacy interface.. args[1] is a string
-
-    pos = GET_OFFSET(args[2]);
-
-    enum encoding enc = ParseEncoding(args[3]);
-
-    len = DecodeBytes(args[1], enc);
-    if (len < 0) {
-      Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
-      return ThrowException(exception);
-    }
-
-    buf = new char[len];
-    written = DecodeWrite(buf, len, args[1], enc);
-    assert(written == len);
-
-    cb = args[4];
+  if (!Buffer::HasInstance(args[1])) {
+    return ThrowException(Exception::Error(
+                String::New("Second argument needs to be a buffer")));
   }
 
-  if (cb->IsFunction()) {
-    // WARNING: HACK AHEAD, PROCEED WITH CAUTION
-    // Normally here I would do
-    //   ASYNC_CALL(write, cb, fd, buf, len, pos)
-    // however, I'm trying to support a legacy interface; where in the
-    // String version a chunk of memory is allocated for the string to be
-    // decoded into. In the After() function it is freed.
-    //
-    // However in the Buffer version, we increase the reference count
-    // to the Buffer while we're in the thread pool.
-    //
-    // We have to let After() know which version is being done so it can
-    // know if it needs to free 'buf' or not. We do that by using
-    // req->int3.
-    //
-    //   req->int3 == 1 legacy, String version. Need to free `buf`.
-    //   req->int3 == 0 Buffer version. Don't do anything.
-    //
-    eio_req *req = eio_write(fd, buf, len, pos,
-                             EIO_PRI_DEFAULT,
-                             After,
-                             cb_persist(cb));
-    assert(req);
-    req->int3 = legacy ? 1 : 0;
-    ev_ref(EV_DEFAULT_UC);
-    return Undefined();
+  Buffer * buffer = ObjectWrap::Unwrap<Buffer>(args[1]->ToObject());
 
+  size_t off = args[2]->Int32Value();
+  if (off >= buffer->length()) {
+    return ThrowException(Exception::Error(
+          String::New("Offset is out of bounds")));
+  }
+
+  ssize_t len = args[3]->Int32Value();
+  if (off + len > buffer->length()) {
+    return ThrowException(Exception::Error(
+          String::New("Length is extends beyond buffer")));
+  }
+
+  off_t pos = GET_OFFSET(args[4]);
+
+  char * buf = (char*)buffer->data() + off;
+  Local<Value> cb = args[5];
+
+  if (cb->IsFunction()) {
+    ASYNC_CALL(write, cb, fd, buf, len, pos)
   } else {
-    written = pos < 0 ? write(fd, buf, len) : pwrite(fd, buf, len, pos);
-    if (legacy) {
-      delete [] reinterpret_cast<char*>(buf);
-    }
-    if (written < 0) return ThrowException(ErrnoException(errno));
+    ssize_t written = pos < 0 ? write(fd, buf, len) : pwrite(fd, buf, len, pos);
+    if (written < 0) return ThrowException(ErrnoException(errno, "write"));
     return scope.Close(Integer::New(written));
   }
 }
@@ -661,16 +575,6 @@ static Handle<Value> Write(const Arguments& args) {
  * 3 length    integer. length to read
  * 4 position  file position - null for current position
  *
- *  - OR -
- *
- * [string, bytesRead] = fs.read(fd, length, position, encoding)
- *
- * 0 fd        integer. file descriptor
- * 1 length    integer. length to read
- * 2 position  if integer, position to read from in the file.
- *             if null, read from the current position
- * 3 encoding
- *
  */
 static Handle<Value> Read(const Arguments& args) {
   HandleScope scope;
@@ -682,105 +586,47 @@ static Handle<Value> Read(const Arguments& args) {
   int fd = args[0]->Int32Value();
 
   Local<Value> cb;
-  bool legacy;
 
   size_t len;
   off_t pos;
-  enum encoding encoding;
 
   char * buf = NULL;
 
-  if (Buffer::HasInstance(args[1])) {
-    legacy = false;
-    // 0 fd        integer. file descriptor
-    // 1 buffer    instance of Buffer
-    // 2 offset    integer. offset to start reading into inside buffer
-    // 3 length    integer. length to read
-    // 4 position  file position - null for current position
-    Buffer * buffer = ObjectWrap::Unwrap<Buffer>(args[1]->ToObject());
-
-    size_t off = args[2]->Int32Value();
-    if (off >= buffer->length()) {
-      return ThrowException(Exception::Error(
-            String::New("Offset is out of bounds")));
-    }
-
-    len = args[3]->Int32Value();
-    if (off + len > buffer->length()) {
-      return ThrowException(Exception::Error(
-            String::New("Length is extends beyond buffer")));
-    }
-
-    pos = GET_OFFSET(args[4]);
-
-    buf = (char*)buffer->data() + off;
-
-    cb = args[5];
-
-  } else {
-    legacy = true;
-    // 0 fd        integer. file descriptor
-    // 1 length    integer. length to read
-    // 2 position  if integer, position to read from in the file.
-    //             if null, read from the current position
-    // 3 encoding
-    len = args[1]->IntegerValue();
-    pos = GET_OFFSET(args[2]);
-    encoding = ParseEncoding(args[3]);
-
-    buf = NULL; // libeio will allocate and free it.
-
-    cb = args[4];
+  if (!Buffer::HasInstance(args[1])) {
+    return ThrowException(Exception::Error(
+                String::New("Second argument needs to be a buffer")));
   }
 
+  Buffer * buffer = ObjectWrap::Unwrap<Buffer>(args[1]->ToObject());
+
+  size_t off = args[2]->Int32Value();
+  if (off >= buffer->length()) {
+    return ThrowException(Exception::Error(
+          String::New("Offset is out of bounds")));
+  }
+
+  len = args[3]->Int32Value();
+  if (off + len > buffer->length()) {
+    return ThrowException(Exception::Error(
+          String::New("Length is extends beyond buffer")));
+  }
+
+  pos = GET_OFFSET(args[4]);
+
+  buf = (char*)buffer->data() + off;
+
+  cb = args[5];
 
   if (cb->IsFunction()) {
-    // WARNING: HACK AGAIN, PROCEED WITH CAUTION
-    // Normally here I would do
-    //   ASYNC_CALL(read, args[4], fd, NULL, len, offset)
-    // but I'm trying to support a legacy interface where it's acceptable to
-    // return a string in the callback. As well as a new Buffer interface
-    // which reads data into a user supplied buffer.
-
-    // Set the encoding on the callback
-    if (legacy) {
-      Local<Object> obj = cb->ToObject();
-      obj->SetHiddenValue(encoding_symbol, args[3]);
-    }
-
-    if (legacy) assert(buf == NULL);
-
-    
-    eio_req *req = eio_read(fd, buf, len, pos,
-                             EIO_PRI_DEFAULT,
-                             After,
-                             cb_persist(cb));
-    assert(req);
-
-    req->int3 = legacy ? 1 : 0;
-    ev_ref(EV_DEFAULT_UC);
-    return Undefined();
-
+    ASYNC_CALL(read, cb, fd, buf, len, pos);
   } else {
     // SYNC
     ssize_t ret;
 
-    if (legacy) {
-#define READ_BUF_LEN (16*1024)
-      char buf2[READ_BUF_LEN];
-      ret = pos < 0 ? read(fd, buf2, MIN(len, READ_BUF_LEN))
-                    : pread(fd, buf2, MIN(len, READ_BUF_LEN), pos);
-      if (ret < 0) return ThrowException(ErrnoException(errno));
-      Local<Array> a = Array::New(2);
-      a->Set(Integer::New(0), Encode(buf2, ret, encoding));
-      a->Set(Integer::New(1), Integer::New(ret));
-      return scope.Close(a);
-    } else {
-      ret = pos < 0 ? read(fd, buf, len) : pread(fd, buf, len, pos);
-      if (ret < 0) return ThrowException(ErrnoException(errno));
-      Local<Integer> bytesRead = Integer::New(ret);
-      return scope.Close(bytesRead);
-    }
+    ret = pos < 0 ? read(fd, buf, len) : pread(fd, buf, len, pos);
+    if (ret < 0) return ThrowException(ErrnoException(errno));
+    Local<Integer> bytesRead = Integer::New(ret);
+    return scope.Close(bytesRead);
   }
 }
 
