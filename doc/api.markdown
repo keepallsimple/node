@@ -1443,9 +1443,14 @@ contents of the file.
 
 If no encoding is specified, then the raw buffer is returned.
 
-### fs.readFileSync(filename, encoding='utf8')
+
+### fs.readFileSync(filename [, encoding])
 
 Synchronous version of `fs.readFile`. Returns the contents of the `filename`.
+
+If `encoding` is specified then this function returns a string. Otherwise it
+returns a buffer.
+
 
 ### fs.writeFile(filename, data, encoding='utf8', callback)
 
@@ -1801,9 +1806,6 @@ authentication details.
 This object is created internally by a HTTP server--not by the user. It is
 passed as the second parameter to the `'request'` event. It is a writable stream.
 
-BUG: `http.ServerResponse` does not yet implement all the throttling
-mechanisms of writable streams. In particiular the return value of `write()`
-is not in line with the interface and it does not emit a `drain` event.
 
 ### response.writeHead(statusCode[, reasonPhrase] , headers)
 
@@ -1950,10 +1952,6 @@ event, the entire body will be caught.
     });
 
 This is a writable stream.
-
-BUG: `http.ClientRequest` does not yet implement all the throttling
-mechanisms of writable streams. In particiular the return value of `write()`
-is not in line with the interface and it does not emit a `drain` event.
 
 This is an `EventEmitter` with the following events:
 

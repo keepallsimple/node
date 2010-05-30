@@ -7,13 +7,18 @@ from os.path import join, dirname, abspath
 from logging import fatal
 
 cwd = os.getcwd()
-VERSION="0.1.96"
+VERSION="0.1.97"
 APPNAME="node.js"
 
 import js2c
 
 srcdir = '.'
 blddir = 'build'
+
+
+jobs=1
+if os.environ.has_key('JOBS'):
+  jobs = int(os.environ['JOBS'])
 
 def set_options(opt):
   # the gcc module provides a --debug-level option
@@ -232,6 +237,7 @@ def build_v8(bld):
   bld.install_files('${PREFIX}/include/node/', 'deps/v8/include/*.h')
 
 def build(bld):
+  Options.options.jobs=jobs
   print "DEST_OS: " + bld.env['DEST_OS']
   print "DEST_CPU: " + bld.env['DEST_CPU']
   print "Parallel Jobs: " + str(Options.options.jobs)
@@ -312,7 +318,7 @@ def build(bld):
     src/node.cc
     src/node_buffer.cc
     src/node_http_parser.cc
-    src/node_net2.cc
+    src/node_net.cc
     src/node_io_watcher.cc
     src/node_child_process.cc
     src/node_constants.cc
