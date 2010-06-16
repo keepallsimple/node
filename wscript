@@ -7,7 +7,7 @@ from os.path import join, dirname, abspath
 from logging import fatal
 
 cwd = os.getcwd()
-VERSION="0.1.97"
+VERSION="0.1.98"
 APPNAME="node.js"
 
 import js2c
@@ -485,6 +485,12 @@ def build(bld):
   if not bld.env["USE_SHARED_CARES"]:
     node.add_objects += ' cares '
     node.includes += '  deps/c-ares deps/c-ares/' + bld.env['DEST_OS'] + '-' + bld.env['DEST_CPU']
+
+  if sys.platform.startswith('cygwin'):
+    bld.env.append_value('LINKFLAGS', '-Wl,--export-all-symbols')
+    bld.env.append_value('LINKFLAGS', '-Wl,--out-implib,default/libnode.dll.a')
+    bld.env.append_value('LINKFLAGS', '-Wl,--output-def,default/libnode.def')
+    bld.install_files('${PREFIX}/lib', "build/default/libnode.*")
 
   def subflags(program):
     if os.path.exists(join(cwd, ".git")):

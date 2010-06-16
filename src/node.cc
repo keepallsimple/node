@@ -1845,6 +1845,7 @@ static Handle<Value> Binding(const Arguments& args) {
       exports->Set(String::New("assert"),       String::New(native_assert));
       exports->Set(String::New("buffer"),       String::New(native_buffer));
       exports->Set(String::New("child_process"),String::New(native_child_process));
+      exports->Set(String::New("dgram"),        String::New(native_dgram));
       exports->Set(String::New("dns"),          String::New(native_dns));
       exports->Set(String::New("events"),       String::New(native_events));
       exports->Set(String::New("file"),         String::New(native_file));
@@ -1861,12 +1862,11 @@ static Handle<Value> Binding(const Arguments& args) {
       exports->Set(String::New("readline"),     String::New(native_readline));
       exports->Set(String::New("sys"),          String::New(native_sys));
       exports->Set(String::New("tcp"),          String::New(native_tcp));
-      exports->Set(String::New("uri"),          String::New(native_uri));
       exports->Set(String::New("url"),          String::New(native_url));
       exports->Set(String::New("utils"),        String::New(native_utils));
       exports->Set(String::New("path"),         String::New(native_path));
       exports->Set(String::New("module"),       String::New(native_module));
-      exports->Set(String::New("utf8decoder"),  String::New(native_utf8decoder));
+      exports->Set(String::New("string_decoder"), String::New(native_string_decoder));
       binding_cache->Set(module, exports);
     }
 
