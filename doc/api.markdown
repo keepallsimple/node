@@ -576,6 +576,11 @@ This will generate:
     4: four
 
 
+### process.execPath
+
+This is the absolute pathname of the executable that started the process.
+
+
 ### process.chdir(directory)
 
 Changes the current working directory of the process or throws an exception if that fails.
@@ -1866,6 +1871,7 @@ Example of connecting to `google.com`:
     var google = http.createClient(80, 'www.google.com');
     var request = google.request('GET', '/',
       {'host': 'www.google.com'});
+    request.end();
     request.addListener('response', function (response) {
       sys.puts('STATUS: ' + response.statusCode);
       sys.puts('HEADERS: ' + JSON.stringify(response.headers));
@@ -1874,7 +1880,6 @@ Example of connecting to `google.com`:
         sys.puts('BODY: ' + chunk);
       });
     });
-    request.end();
 
 
 ### http.createClient(port, host, secure, credentials)
