@@ -76,7 +76,7 @@ Allocates a new buffer using an `array` of octets.
 
 Allocates a new buffer containing the given `str`.
 
-### buffer.write(string, encoding, offset)
+### buffer.write(string, offset=0, encoding='utf8')
 
 Writes `string` to the buffer at `offset` using the given encoding. Returns
 number of octets written.  If `buffer` did not contain enough space to fit
@@ -85,11 +85,9 @@ of `'utf8'` encoding, the method will not write partial characters.
 
 Example: write a utf8 string into a buffer, then print it
 
-    var Buffer = require('buffer').Buffer,
-      buf = new Buffer(256),
-      len;
-
-    len = buf.write('\u00bd + \u00bc = \u00be', 'utf8', 0);
+    Buffer = require('buffer').Buffer;
+    buf = new Buffer(256);
+    len = buf.write('\u00bd + \u00bc = \u00be', 0);
     console.log(len + " bytes: " + buf.toString('utf8', 0, len));
 
     // 12 bytes: ½ + ¼ = ¾
@@ -161,7 +159,7 @@ buffer object.  It does not change when the contents of the buffer are changed.
 
 Does a memcpy() between buffers.
 
-Example: build two Buffers, then copy `buf1` from byte 16 through byte 20
+Example: build two Buffers, then copy `buf1` from byte 16 through byte 19
 into `buf2`, starting at the 8th byte in `buf2`.
 
     var Buffer = require('buffer').Buffer,
@@ -177,7 +175,7 @@ into `buf2`, starting at the 8th byte in `buf2`.
     buf1.copy(buf2, 8, 16, 20);
     console.log(buf2.toString('ascii', 0, 25));
 
-    // !!!!!!!!qrstu!!!!!!!!!!!!
+    // !!!!!!!!qrst!!!!!!!!!!!!!
     
 
 ### buffer.slice(start, end)
@@ -2692,7 +2690,7 @@ Example:
 
     querystring.stringify({foo: 'bar', foo: 'baz', foo: 'boz'})
     // returns
-    'foo[]=bar&foo[]=baz&foo[]=boz'
+    'foo=boz'
 
     querystring.stringify({foo: {bar: 'baz'}})
     // returns

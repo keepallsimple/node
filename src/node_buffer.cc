@@ -298,7 +298,7 @@ Handle<Value> Buffer::Copy(const Arguments &args) {
   ssize_t target_start = args[1]->Int32Value();
   ssize_t source_start = args[2]->Int32Value();
   ssize_t source_end = args[3]->IsInt32() ? args[3]->Int32Value()
-                                          : (source->length() - 1);
+                                          : source->length();
 
   if (source_end < source_start) {
     return ThrowException(Exception::Error(String::New(
@@ -315,23 +315,23 @@ Handle<Value> Buffer::Copy(const Arguments &args) {
             "sourceStart out of bounds")));
   }
 
-  if (source_end < 0 || source_end >= source->length()) {
+  if (source_end < 0 || source_end > source->length()) {
     return ThrowException(Exception::Error(String::New(
             "sourceEnd out of bounds")));
   }
 
-  ssize_t to_copy = MIN( (source_end - source_start + 1),
-                         (target->length() - target_start) );
+  ssize_t to_copy = MIN(source_end - source_start,
+                        target->length() - target_start);
 
-  if (source->handle_->StrictEquals(target->handle_)) {
+  if (target->blob_ == source->blob_) {
     // need to use slightly slower memmove is the ranges might overlap
     memmove((void*)(target->data() + target_start),
-      (const void*)(source->data() + source_start),
-      to_copy);
+            (const void*)(source->data() + source_start),
+            to_copy);
   } else {
     memcpy((void*)(target->data() + target_start),
-      (const void*)(source->data() + source_start),
-      to_copy);
+           (const void*)(source->data() + source_start),
+           to_copy);
   }
 
   return scope.Close(Integer::New(to_copy));
@@ -509,8 +509,8 @@ Handle<Value> Buffer::ByteLength(const Arguments &args) {
   enum encoding e = ParseEncoding(args[1], UTF8);
 
   Local<Integer> length =
-    Integer::New(e == UTF8 ? s->Utf8Length() : s->Length()); 
-  
+    Integer::New(e == UTF8 ? s->Utf8Length() : s->Length());
+
   return scope.Close(length);
 }
 
