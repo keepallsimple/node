@@ -72,7 +72,7 @@ Allocates a new buffer of `size` octets.
 
 Allocates a new buffer using an `array` of octets.
 
-### new Buffer(str, encoding = 'utf8')
+### new Buffer(str, encoding='utf8')
 
 Allocates a new buffer containing the given `str`.
 
@@ -241,11 +241,11 @@ If an error was encountered, then this event is emitted. This event is
 special - when there are no listeners to receive the error Node will
 terminate execution and display the exception's stack trace.
 
-### emitter.addListener(event, listener)
+### emitter.on(event, listener)
 
 Adds a listener to the end of the listeners array for the specified event.
 
-    server.addListener('stream', function (stream) {
+    server.on('stream', function (stream) {
       console.log('someone connected!');
     });
 
@@ -312,6 +312,13 @@ Emitted when the underlying file descriptor has be closed. Not all streams
 will emit this.  (For example, an incoming HTTP request will not emit
 `'close'`.)
 
+### Event: 'fd'
+
+`function (fd) { }`
+
+Emitted when a file descriptor is received on the stream. Only UNIX streams
+support this functionality; all others will simply never emit this event.
+
 ### stream.setEncoding(encoding)
 Makes the data event emit a string instead of a `Buffer`. `encoding` can be
 `'utf8'`, `'ascii'`, or `'binary'`.
@@ -353,7 +360,7 @@ Emitted on error with the exception `exception`.
 
 Emitted when the underlying file descriptor has been closed.
 
-### stream.write(string, encoding)
+### stream.write(string, encoding, [fd])
 
 Writes `string` with the given `encoding` to the stream.  Returns `true` if
 the string has been flushed to the kernel buffer.  Returns `false` to
@@ -361,6 +368,11 @@ indicate that the kernel buffer is full, and the data will be sent out in
 the future. The `'drain'` event will indicate when the kernel buffer is
 empty again. The `encoding` defaults to `'utf8'`.
 
+If the optional `fd` parameter is specified, it is interpreted as an integral
+file descriptor to be sent over the stream. This is only supported for UNIX
+streams, and is silently ignored otherwise. When writing a file descriptor in
+this manner, closing the descriptor before the stream drains risks sending an
+invalid (closed) FD.
 
 ### stream.write(buffer)
 
@@ -453,7 +465,7 @@ timers may not be scheduled.
 
 Example of listening for `exit`:
 
-    process.addListener('exit', function () {
+    process.on('exit', function () {
       process.nextTick(function () {
        console.log('This will not run');
       });
@@ -470,7 +482,7 @@ a stack trace and exit) will not occur.
 
 Example of listening for `uncaughtException`:
 
-    process.addListener('uncaughtException', function (err) {
+    process.on('uncaughtException', function (err) {
       console.log('Caught exception: ' + err);
     });
 
@@ -499,7 +511,7 @@ Example of listening for `SIGINT`:
 
     var stdin = process.openStdin();
 
-    process.addListener('SIGINT', function () {
+    process.on('SIGINT', function () {
       console.log('Got SIGINT.  Press Control-D to exit.');
     });
 
@@ -528,11 +540,11 @@ Example of opening standard input and listening for both events:
 
     stdin.setEncoding('utf8');
 
-    stdin.addListener('data', function (chunk) {
+    stdin.on('data', function (chunk) {
       process.stdout.write('data: ' + chunk);
     });
 
-    stdin.addListener('end', function () {
+    stdin.on('end', function () {
       process.stdout.write('end');
     });
 
@@ -628,9 +640,16 @@ To exit with a 'failure' code:
 The shell that executed node should see the exit code as 1.
 
 
-### process.getgid(), process.setgid(id)
+### process.getgid()
 
-Gets/sets the group identity of the process. (See setgid(2).)  This is the numerical group id, not the group name.
+Gets the group identity of the process. (See getgid(2).)  This is the numerical group id, not the group name.
+
+    console.log('Current gid: ' + process.getgid());
+
+
+### process.setgid(id)
+
+Sets the group identity of the process. (See setgid(2).)  This is the numerical group id, not the group name.
 
     console.log('Current gid: ' + process.getgid());
     try {
@@ -642,9 +661,16 @@ Gets/sets the group identity of the process. (See setgid(2).)  This is the numer
     }
 
 
-### process.getuid(), process.setuid(id)
+### process.getuid()
 
-Gets/sets the user identity of the process. (See setuid(2).)  This is the numerical userid, not the username.
+Gets the user identity of the process. (See getuid(2).)  This is the numerical userid, not the username.
+
+    console.log('Current uid: ' + process.getuid());
+
+
+### process.setuid(id)
+
+Sets the user identity of the process. (See setuid(2).)  This is the numerical userid, not the username.
 
     console.log('Current uid: ' + process.getuid());
     try {
@@ -682,7 +708,7 @@ may do something other than kill the target process.
 
 Example of sending a signal to yourself:
 
-    process.addListener('SIGHUP', function () {
+    process.on('SIGHUP', function () {
       console.log('Got SIGHUP signal.');
     });
 
@@ -812,7 +838,7 @@ called when `writableStream` is closed.
 
 ## Timers
 
-### setTimeout(callback, delay, [arg, ...])
+### setTimeout(callback, delay, [arg], [...])
 
 To schedule execution of `callback` after `delay` milliseconds. Returns a
 `timeoutId` for possible use with `clearTimeout()`.
@@ -821,7 +847,7 @@ To schedule execution of `callback` after `delay` milliseconds. Returns a
 
 Prevents a timeout from triggering.
 
-### setInterval(callback, delay, [arg, ...])
+### setInterval(callback, delay, [arg], [...])
 
 To schedule the repeated execution of `callback` every `delay` milliseconds.
 Returns a `intervalId` for possible use with `clearInterval()`.
@@ -874,15 +900,15 @@ Example of running `ls -lh /usr`, capturing `stdout`, `stderr`, and the exit cod
         spawn = require('child_process').spawn,
         ls    = spawn('ls', ['-lh', '/usr']);
 
-    ls.stdout.addListener('data', function (data) {
+    ls.stdout.on('data', function (data) {
       sys.print('stdout: ' + data);
     });
 
-    ls.stderr.addListener('data', function (data) {
+    ls.stderr.on('data', function (data) {
       sys.print('stderr: ' + data);
     });
 
-    ls.addListener('exit', function (code) {
+    ls.on('exit', function (code) {
       console.log('child process exited with code ' + code);
     });
 
@@ -892,7 +918,7 @@ Example of checking for failed exec:
     var spawn = require('child_process').spawn,
         child = spawn('bad_command');
 
-    child.stderr.addListener('data', function (data) {
+    child.stderr.on('data', function (data) {
       if (/^execvp\(\)/.test(data.asciiSlice(0,data.length))) {
         console.log('Failed to start child process.');
       }
@@ -910,7 +936,7 @@ be sent `'SIGTERM'`. See `signal(7)` for a list of available signals.
     var spawn = require('child_process').spawn,
         grep  = spawn('grep', ['ssh']);
 
-    grep.addListener('exit', function (code, signal) {
+    grep.on('exit', function (code, signal) {
       console.log('child process terminated due to receipt of signal '+signal);
     });
 
@@ -949,30 +975,30 @@ Example: A very elaborate way to run 'ps ax | grep ssh'
         ps    = spawn('ps', ['ax']),
         grep  = spawn('grep', ['ssh']);
 
-    ps.stdout.addListener('data', function (data) {
+    ps.stdout.on('data', function (data) {
       grep.stdin.write(data);
     });
 
-    ps.stderr.addListener('data', function (data) {
+    ps.stderr.on('data', function (data) {
       sys.print('ps stderr: ' + data);
     });
 
-    ps.addListener('exit', function (code) {
+    ps.on('exit', function (code) {
       if (code !== 0) {
         console.log('ps process exited with code ' + code);
       }
       grep.stdin.end();
     });
 
-    grep.stdout.addListener('data', function (data) {
+    grep.stdout.on('data', function (data) {
       sys.print(data);
     });
 
-    grep.stderr.addListener('data', function (data) {
+    grep.stderr.on('data', function (data) {
       sys.print('grep stderr: ' + data);
     });
 
-    grep.addListener('exit', function (code) {
+    grep.on('exit', function (code) {
       if (code !== 0) {
         console.log('grep process exited with code ' + code);
       }
@@ -988,14 +1014,14 @@ Example:
     var spawn = require('child_process').spawn,
         grep  = spawn('grep', ['ssh']);
 
-    grep.addListener('exit', function (code) {
+    grep.on('exit', function (code) {
       console.log('child process exited with code ' + code);
     });
 
     grep.stdin.end();
 
 
-### child_process.exec(command, [options, ] callback)
+### child_process.exec(command, [options], callback)
 
 High-level way to execute a command as a child process, buffer the
 output, and return it all in a callback.
@@ -1253,7 +1279,7 @@ Synchronous chmod(2).
   
 ### fs.stat(path, callback), fs.lstat(path, callback), fs.fstat(fd, callback)
 
-Asynchronous stat(2), lstat(2) or fstat(2). The callback gets two arguments `(err, stats)` where `stats` is a `fs.Stats` object. It looks like this:
+Asynchronous stat(2). The callback gets two arguments `(err, stats)` where `stats` is a `fs.Stats` object. It looks like this:
 
     { dev: 2049
     , ino: 305352
@@ -1272,9 +1298,25 @@ Asynchronous stat(2), lstat(2) or fstat(2). The callback gets two arguments `(er
 
 See the `fs.Stats` section below for more information.
 
-### fs.statSync(path), fs.lstatSync(path), fs.fstatSync(fd)
+### fs.lstat(path, callback)
 
-Synchronous stat(2), lstat(2) or fstat(2). Returns an instance of `fs.Stats`.
+Asynchronous lstat(2). The callback gets two arguments `(err, stats)` where `stats` is a `fs.Stats` object.
+
+### fs.fstat(fd, callback)
+
+Asynchronous fstat(2). The callback gets two arguments `(err, stats)` where `stats` is a `fs.Stats` object.
+
+### fs.statSync(path)
+
+Synchronous stat(2). Returns an instance of `fs.Stats`.
+
+### fs.lstatSync(path)
+
+Synchronous lstat(2). Returns an instance of `fs.Stats`.
+
+### fs.fstatSync(fd)
+
+Synchronous fstat(2). Returns an instance of `fs.Stats`.
 
 ### fs.link(srcpath, dstpath, callback)
 
@@ -1397,7 +1439,7 @@ The callback is given the two arguments, `(err, bytesRead)`.
 
 Synchronous version of `fs.read`. Returns the number of `bytesRead`.
 
-### fs.readFile(filename, [encoding,] callback)
+### fs.readFile(filename, [encoding], callback)
 
 Asynchronously reads the entire contents of a file. Example:
 
@@ -1412,7 +1454,7 @@ contents of the file.
 If no encoding is specified, then the raw buffer is returned.
 
 
-### fs.readFileSync(filename [, encoding])
+### fs.readFileSync(filename, [encoding])
 
 Synchronous version of `fs.readFile`. Returns the contents of the `filename`.
 
@@ -1433,7 +1475,7 @@ Asynchronously writes data to a file. Example:
 
 The synchronous version of `fs.writeFile`.
 
-### fs.watchFile(filename, [options,] listener)
+### fs.watchFile(filename, [options], listener)
 
 Watch for changes on `filename`. The callback `listener` will be called each
 time the file changes.
@@ -1774,7 +1816,7 @@ This object is created internally by a HTTP server--not by the user. It is
 passed as the second parameter to the `'request'` event. It is a writable stream.
 
 
-### response.writeHead(statusCode[, reasonPhrase] , headers)
+### response.writeHead(statusCode, [reasonPhrase], headers)
 
 Sends a response header to the request. The status code is a 3-digit HTTP
 status code, like `404`. The last argument, `headers`, are the response headers.
@@ -1834,15 +1876,25 @@ Example of connecting to `google.com`:
     var request = google.request('GET', '/',
       {'host': 'www.google.com'});
     request.end();
-    request.addListener('response', function (response) {
+    request.on('response', function (response) {
       console.log('STATUS: ' + response.statusCode);
       console.log('HEADERS: ' + JSON.stringify(response.headers));
       response.setEncoding('utf8');
-      response.addListener('data', function (chunk) {
+      response.on('data', function (chunk) {
         console.log('BODY: ' + chunk);
       });
     });
 
+
+### Event: 'upgrade'
+
+`function (request, socket, head)`
+
+Emitted each time a server responds to a request with an upgrade. If this event
+isn't being listened for, clients receiving an upgrade header will have their
+connections closed.
+
+See the description of the `upgrade` event for `http.Server` for further details.
 
 ### http.createClient(port, host, secure, credentials)
 
@@ -1902,16 +1954,16 @@ event, the entire body will be caught.
 
 
     // Good
-    request.addListener('response', function (response) {
-      response.addListener('data', function (chunk) {
+    request.on('response', function (response) {
+      response.on('data', function (chunk) {
         console.log('BODY: ' + chunk);
       });
     });
 
     // Bad - misses all or part of the body
-    request.addListener('response', function (response) {
+    request.on('response', function (response) {
       setTimeout(function () {
-        response.addListener('data', function (chunk) {
+        response.on('data', function (chunk) {
           console.log('BODY: ' + chunk);
         });
       }, 10);
@@ -2023,13 +2075,13 @@ on port 8124:
     var net = require('net');
     var server = net.createServer(function (stream) {
       stream.setEncoding('utf8');
-      stream.addListener('connect', function () {
+      stream.on('connect', function () {
         stream.write('hello\r\n');
       });
-      stream.addListener('data', function (data) {
+      stream.on('data', function (data) {
         stream.write(data);
       });
-      stream.addListener('end', function () {
+      stream.on('end', function () {
         stream.write('goodbye\r\n');
         stream.end();
       });
@@ -2081,6 +2133,12 @@ This function is asynchronous. The last parameter `callback` will be called
 when the server has been bound.
 
 
+### server.listenFD(fd)
+
+Start a server listening for connections on the given file descriptor.
+
+This file descriptor must have already had the `bind(2)` and `listen(2)` system
+calls invoked on it.
 
 ### server.close()
 
@@ -2935,7 +2993,7 @@ To get started we create a file `hello.cc`:
 
     using namespace v8;
 
-    extern 'C' void
+    extern "C" void
     init (Handle<Object> target) 
     {
       HandleScope scope;
