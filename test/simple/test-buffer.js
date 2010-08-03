@@ -256,7 +256,53 @@ assert.equal(expected, (new Buffer(quote)).toString('base64'));
 b = new Buffer(1024);
 bytesWritten = b.write(expected, 0, 'base64');
 assert.equal(quote, b.toString('ascii', 0, quote.length));
-assert.equal(quote.length+1, bytesWritten); // writes a \0 too
+assert.equal(quote.length, bytesWritten);
 
+assert.equal(new Buffer('', 'base64').toString(), '');
+assert.equal(new Buffer('K', 'base64').toString(), '');
 
+// multiple-of-4 with padding
+assert.equal(new Buffer('Kg==', 'base64').toString(), '*');
+assert.equal(new Buffer('Kio=', 'base64').toString(), '**');
+assert.equal(new Buffer('Kioq', 'base64').toString(), '***');
+assert.equal(new Buffer('KioqKg==', 'base64').toString(), '****');
+assert.equal(new Buffer('KioqKio=', 'base64').toString(), '*****');
+assert.equal(new Buffer('KioqKioq', 'base64').toString(), '******');
+assert.equal(new Buffer('KioqKioqKg==', 'base64').toString(), '*******');
+assert.equal(new Buffer('KioqKioqKio=', 'base64').toString(), '********');
+assert.equal(new Buffer('KioqKioqKioq', 'base64').toString(), '*********');
+assert.equal(new Buffer('KioqKioqKioqKg==', 'base64').toString(), '**********');
+assert.equal(new Buffer('KioqKioqKioqKio=', 'base64').toString(), '***********');
+assert.equal(new Buffer('KioqKioqKioqKioq', 'base64').toString(), '************');
+assert.equal(new Buffer('KioqKioqKioqKioqKg==', 'base64').toString(), '*************');
+assert.equal(new Buffer('KioqKioqKioqKioqKio=', 'base64').toString(), '**************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioq', 'base64').toString(), '***************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKg==', 'base64').toString(), '****************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKio=', 'base64').toString(), '*****************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKioq', 'base64').toString(), '******************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKioqKg==', 'base64').toString(), '*******************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKioqKio=', 'base64').toString(), '********************');
 
+// no padding, not a multiple of 4
+assert.equal(new Buffer('Kg', 'base64').toString(), '*');
+assert.equal(new Buffer('Kio', 'base64').toString(), '**');
+assert.equal(new Buffer('KioqKg', 'base64').toString(), '****');
+assert.equal(new Buffer('KioqKio', 'base64').toString(), '*****');
+assert.equal(new Buffer('KioqKioqKg', 'base64').toString(), '*******');
+assert.equal(new Buffer('KioqKioqKio', 'base64').toString(), '********');
+assert.equal(new Buffer('KioqKioqKioqKg', 'base64').toString(), '**********');
+assert.equal(new Buffer('KioqKioqKioqKio', 'base64').toString(), '***********');
+assert.equal(new Buffer('KioqKioqKioqKioqKg', 'base64').toString(), '*************');
+assert.equal(new Buffer('KioqKioqKioqKioqKio', 'base64').toString(), '**************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKg', 'base64').toString(), '****************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKio', 'base64').toString(), '*****************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKioqKg', 'base64').toString(), '*******************');
+assert.equal(new Buffer('KioqKioqKioqKioqKioqKioqKio', 'base64').toString(), '********************');
+
+// handle padding graciously, multiple-of-4 or not
+assert.equal(new Buffer('72INjkR5fchcxk9+VgdGPFJDxUBFR5/rMFsghgxADiw==', 'base64').length, 32);
+assert.equal(new Buffer('72INjkR5fchcxk9+VgdGPFJDxUBFR5/rMFsghgxADiw=',  'base64').length, 32);
+assert.equal(new Buffer('72INjkR5fchcxk9+VgdGPFJDxUBFR5/rMFsghgxADiw',   'base64').length, 32);
+assert.equal(new Buffer('w69jACy6BgZmaFvv96HG6MYksWytuZu3T1FvGnulPg==',  'base64').length, 31);
+assert.equal(new Buffer('w69jACy6BgZmaFvv96HG6MYksWytuZu3T1FvGnulPg=',   'base64').length, 31);
+assert.equal(new Buffer('w69jACy6BgZmaFvv96HG6MYksWytuZu3T1FvGnulPg',    'base64').length, 31);

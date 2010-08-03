@@ -77,7 +77,7 @@ process.compile("(function (exports) {"
   };
 
   // Wrap addListener for the special signal types
-  process.addListener = function (type, listener) {
+  process.on = process.addListener = function (type, listener) {
     var ret = addListener.apply(this, arguments);
     if (isSignal(type)) {
       if (!signalWatchers.hasOwnProperty(type)) {
@@ -230,6 +230,11 @@ global.console.assert = function(expression){
     process.assert(false, format.apply(this, arr));
   }
 }
+
+global.Buffer = module.requireNative('buffer').Buffer;
+
+process.debug = global.v8debug.Debug;
+global.v8debug = undefined;
 
 process.exit = function (code) {
   process.emit("exit");
