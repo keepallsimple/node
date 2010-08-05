@@ -194,6 +194,8 @@ var formatRegExp = /%[sdj]/g;
 function format (f) {
   var i = 1;
   var args = arguments;
+
+  // Formatters 
   var str = String(f).replace(formatRegExp, function (x) {
     switch (x) {
       case '%s': return args[i++];
@@ -203,9 +205,15 @@ function format (f) {
         return x;
     }
   });
+
+  // Append arguments not consumed by formatters
   for (var len = args.length; i < len; ++i) {
     str += ' ' + args[i];
   }
+
+  // Group indentation support
+  str = new Array(consoleIndents + 1).join('  ') + str;
+
   return str;
 }
 
@@ -244,6 +252,17 @@ global.console.trace = function(label){
   err.message = label || '';
   Error.captureStackTrace(err, arguments.callee);
   console.error(err.stack);
+};
+
+var consoleIndents = 0;
+
+global.console.group = function(label){
+  console.log(label + ':');
+  ++consoleIndents;
+};
+
+global.console.groupEnd = function(){
+  --consoleIndents;
 };
 
 global.console.assert = function(expression){
